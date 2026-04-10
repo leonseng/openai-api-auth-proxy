@@ -1,12 +1,23 @@
+js_import debug from /etc/nginx/njs/debug.js;
+
 server {
     listen 11434;
 
+    js_var $is_streaming;
+    js_var $response_body_buf;
+    js_var $response_reasoning_buf;
+    js_var $response_content_buf;
+
     location / {
-        # Strip any Authorization header sent by the client
-        proxy_set_header Authorization "Bearer ${OPENAI_API_KEY}";
+        set $debug "${DEBUG}";
+
+        js_header_filter debug.logRequestResponse;
+        js_body_filter   debug.logResponseBody;
 
         proxy_pass ${OPENAI_API_URL};
 
+        # Override any Authorization header from the client with the server-side API key
+        proxy_set_header Authorization "Bearer ${OPENAI_API_KEY}";
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

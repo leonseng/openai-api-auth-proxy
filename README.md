@@ -29,7 +29,7 @@ nginx strips any `Authorization` header from the client and replaces it with the
 2. Start the proxy:
 
     ```bash
-    docker compose up -d
+    docker compose up -d --build
     ```
 
 3. Use it like a normal OpenAI API:
@@ -52,9 +52,30 @@ nginx strips any `Authorization` header from the client and replaces it with the
 |---|---|
 | `OPENAI_API_URL` | Base URL of the OpenAI API-compatible backend, e.g. Ollama |
 | `OPENAI_API_KEY` | API key injected by nginx into every request |
+| `DEBUG` | Set to `true` to log request/response headers and body to the nginx error log (default: `false`) |
 
 ## Stop
 
 ```bash
 docker compose down
+```
+
+## Debug logging
+
+Set `DEBUG=true` in `.env` and restart to log full request/response headers and body to the nginx error log:
+
+```bash
+docker compose up -d --build
+docker compose logs -f
+```
+
+Each proxied request will emit `[DEBUG]` lines like:
+
+```
+[DEBUG] >>> POST /v1/chat/completions HTTP/1.1
+[DEBUG] > content-type: application/json
+[DEBUG] > body: {"model":"llama3","messages":[...]}
+[DEBUG] <<< 200
+[DEBUG] < content-type: application/json
+[DEBUG] < body chunk: {"id":"...","choices":[...]}
 ```
