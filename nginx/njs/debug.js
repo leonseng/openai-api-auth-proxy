@@ -1,12 +1,27 @@
+// NGINX formats log lines into a buffer of NGX_MAX_ERROR_STR = 2048 bytes. That budget
+// covers the entire line, including the prefix NGINX prepends before our message:
+//   2026/04/13 04:55:11 [warn] 42#42: *25 js: <message>
+// Timestamp (20 bytes) + "[warn] PID#PID: *CONNID js: " (up to ~44 bytes) ≈ 64 chars worst case.
+// logFull splits long messages into chunks so each fits within this budget.
+const MAX_LOG_CHARS = 2048 - 64;
+
+// Split msg into MAX_LOG_CHARS-sized chunks and log each one separately.
+// Character counting is a safe approximation for ASCII-dominant log content.
+function logFull(r, msg) {
+    for (let i = 0; i < msg.length; i += MAX_LOG_CHARS) {
+        r.warn(msg.slice(i, i + MAX_LOG_CHARS));
+    }
+}
+
 function logRequestResponse(r) {
     if (r.variables.debug !== 'true') return;
 
-    r.warn(`[DEBUG] >>> ${r.method} ${r.uri} HTTP/${r.httpVersion}`);
+    logFull(r, `[DEBUG] >>> ${r.method} ${r.uri} HTTP/${r.httpVersion}`);
     for (let h in r.headersIn) {
-        r.warn(`[DEBUG] > ${h}: ${r.headersIn[h]}`);
+        logFull(r, `[DEBUG] > ${h}: ${r.headersIn[h]}`);
     }
     if (r.requestText) {
-        r.warn(`[DEBUG] > body: ${r.requestText}`);
+        logFull(r, `[DEBUG] > body: ${r.requestText}`);
         try {
             const req = JSON.parse(r.requestText);
             r.variables.is_streaming = req.stream === true ? '1' : '0';
@@ -15,9 +30,9 @@ function logRequestResponse(r) {
         }
     }
 
-    r.warn(`[DEBUG] <<< ${r.variables.status}`);
+    logFull(r, `[DEBUG] <<< ${r.variables.status}`);
     for (let h in r.headersOut) {
-        r.warn(`[DEBUG] < ${h}: ${r.headersOut[h]}`);
+        logFull(r, `[DEBUG] < ${h}: ${r.headersOut[h]}`);
     }
 }
 
@@ -48,8 +63,8 @@ function logResponseBody(r, data, flags) {
     if (r.variables.debug === 'true') {
         if (r.variables.is_streaming === '1') {
             if (readStreamingBody(r, data)) {
-                if (r.variables.response_reasoning_buf) r.warn(`[DEBUG] < reasoning:\n${r.variables.response_reasoning_buf}`);
-                if (r.variables.response_content_buf) r.warn(`[DEBUG] < content:\n${r.variables.response_content_buf}`);
+                if (r.variables.response_reasoning_buf) logFull(r, `[DEBUG] < reasoning:\n${r.variables.response_reasoning_buf}`);
+                if (r.variables.response_content_buf) logFull(r, `[DEBUG] < content:\n${r.variables.response_content_buf}`);
                 r.variables.response_reasoning_buf = '';
                 r.variables.response_content_buf = '';
             }
@@ -59,10 +74,10 @@ function logResponseBody(r, data, flags) {
                 try {
                     const resp = JSON.parse(r.variables.response_body_buf);
                     const msg = resp.choices && resp.choices[0] && resp.choices[0].message;
-                    if (msg && msg.reasoning) r.warn(`[DEBUG] < reasoning:\n${msg.reasoning}`);
-                    if (msg && msg.content) r.warn(`[DEBUG] < content:\n${msg.content}`);
+                    if (msg && msg.reasoning) logFull(r, `[DEBUG] < reasoning:\n${msg.reasoning}`);
+                    if (msg && msg.content) logFull(r, `[DEBUG] < content:\n${msg.content}`);
                 } catch (e) {
-                    r.warn(`[DEBUG] < body: ${r.variables.response_body_buf}`);
+                    logFull(r, `[DEBUG] < body: ${r.variables.response_body_buf}`);
                 }
                 r.variables.response_body_buf = '';
             }
