@@ -21,12 +21,22 @@ function logRequestResponse(r) {
         logFull(r, `[DEBUG] > ${h}: ${r.headersIn[h]}`);
     }
     if (r.requestText) {
-        logFull(r, `[DEBUG] > body: ${r.requestText}`);
         try {
             const req = JSON.parse(r.requestText);
             r.variables.is_streaming = req.stream === true ? '1' : '0';
+            for (let key in req) {
+                if (key === 'messages') continue;
+                logFull(r, `[DEBUG] > ${key}: ${JSON.stringify(req[key])}`);
+            }
+            if (req.messages) {
+                for (let i = 0; i < req.messages.length; i++) {
+                    const msg = req.messages[i];
+                    logFull(r, `[DEBUG] > messages[${i}] (${msg.role}):\n${msg.content}`);
+                }
+            }
         } catch (e) {
             r.variables.is_streaming = '0';
+            logFull(r, `[DEBUG] > body: ${r.requestText}`);
         }
     }
 
