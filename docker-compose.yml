@@ -11,5 +11,6 @@ services:
     environment:
       - OPENAI_API_URL=${OPENAI_API_URL}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DEBUG=${DEBUG:-false}
+      - LOG_BODY=${LOG_BODY:-false}
+      - LOG_HEADERS=${LOG_HEADERS:-false}
     restart: unless-stopped

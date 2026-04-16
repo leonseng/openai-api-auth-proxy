@@ -14,35 +14,41 @@ function logFull(r, msg) {
 }
 
 function logRequestResponse(r) {
-    if (r.variables.debug !== 'true') return;
+    const logBody = r.variables.log_body === 'true';
+    const logHeaders = r.variables.log_headers === 'true';
+    if (!logBody && !logHeaders) return;
 
-    logFull(r, `[DEBUG] >>> ${r.method} ${r.uri} HTTP/${r.httpVersion}`);
-    for (let h in r.headersIn) {
-        logFull(r, `[DEBUG] > ${h}: ${r.headersIn[h]}`);
+    if (logBody) logFull(r, `>>> ${r.method} ${r.uri} HTTP/${r.httpVersion}`);
+    if (logHeaders) {
+        for (let h in r.headersIn) {
+            logFull(r, `> ${h}: ${r.headersIn[h]}`);
+        }
     }
-    if (r.requestText) {
+    if (logBody && r.requestText) {
         try {
             const req = JSON.parse(r.requestText);
             r.variables.is_streaming = req.stream === true ? '1' : '0';
             for (let key in req) {
                 if (key === 'messages') continue;
-                logFull(r, `[DEBUG] > ${key}: ${JSON.stringify(req[key])}`);
+                logFull(r, `> ${key}: ${JSON.stringify(req[key])}`);
             }
             if (req.messages) {
                 for (let i = 0; i < req.messages.length; i++) {
                     const msg = req.messages[i];
-                    logFull(r, `[DEBUG] > messages[${i}] (${msg.role}):\n${msg.content}`);
+                    logFull(r, `> messages[${i}] (${msg.role}):\n${msg.content}`);
                 }
             }
         } catch (e) {
             r.variables.is_streaming = '0';
-            logFull(r, `[DEBUG] > body: ${r.requestText}`);
+            logFull(r, `> body: ${r.requestText}`);
         }
     }
 
-    logFull(r, `[DEBUG] <<< ${r.variables.status}`);
-    for (let h in r.headersOut) {
-        logFull(r, `[DEBUG] < ${h}: ${r.headersOut[h]}`);
+    if (logBody) logFull(r, `<<< ${r.variables.status}`);
+    if (logHeaders) {
+        for (let h in r.headersOut) {
+            logFull(r, `< ${h}: ${r.headersOut[h]}`);
+        }
     }
 }
 
@@ -70,11 +76,11 @@ function readStreamingBody(r, data) {
 }
 
 function logResponseBody(r, data, flags) {
-    if (r.variables.debug === 'true') {
+    if (r.variables.log_body === 'true') {
         if (r.variables.is_streaming === '1') {
             if (readStreamingBody(r, data)) {
-                if (r.variables.response_reasoning_buf) logFull(r, `[DEBUG] < reasoning:\n${r.variables.response_reasoning_buf}`);
-                if (r.variables.response_content_buf) logFull(r, `[DEBUG] < content:\n${r.variables.response_content_buf}`);
+                if (r.variables.response_reasoning_buf) logFull(r, `< reasoning:\n${r.variables.response_reasoning_buf}`);
+                if (r.variables.response_content_buf) logFull(r, `< content:\n${r.variables.response_content_buf}`);
                 r.variables.response_reasoning_buf = '';
                 r.variables.response_content_buf = '';
             }
@@ -84,10 +90,10 @@ function logResponseBody(r, data, flags) {
                 try {
                     const resp = JSON.parse(r.variables.response_body_buf);
                     const msg = resp.choices && resp.choices[0] && resp.choices[0].message;
-                    if (msg && msg.reasoning) logFull(r, `[DEBUG] < reasoning:\n${msg.reasoning}`);
-                    if (msg && msg.content) logFull(r, `[DEBUG] < content:\n${msg.content}`);
+                    if (msg && msg.reasoning) logFull(r, `< reasoning:\n${msg.reasoning}`);
+                    if (msg && msg.content) logFull(r, `< content:\n${msg.content}`);
                 } catch (e) {
-                    logFull(r, `[DEBUG] < body: ${r.variables.response_body_buf}`);
+                    logFull(r, `< body: ${r.variables.response_body_buf}`);
                 }
                 r.variables.response_body_buf = '';
             }

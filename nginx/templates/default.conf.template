@@ -3,7 +3,8 @@ js_import debug from /etc/nginx/njs/debug.js;
 server {
     listen 11434;
 
-    set $debug "${DEBUG}";
+    set $log_body    "${LOG_BODY}";
+    set $log_headers "${LOG_HEADERS}";
 
     js_var $is_streaming;
     js_var $response_body_buf;
