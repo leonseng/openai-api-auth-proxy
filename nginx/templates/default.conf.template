@@ -3,35 +3,46 @@ js_import debug from /etc/nginx/njs/debug.js;
 server {
     listen 11434;
 
+    set $debug "${DEBUG}";
+
     js_var $is_streaming;
     js_var $response_body_buf;
     js_var $response_reasoning_buf;
     js_var $response_content_buf;
 
-    location / {
-        set $debug "${DEBUG}";
+    proxy_set_header Authorization "Bearer ${OPENAI_API_KEY}";
+    proxy_ssl_server_name on;
+    proxy_http_version    1.1;
+    proxy_read_timeout    300s;
+    proxy_send_timeout    300s;
+    proxy_buffering       off;
+    chunked_transfer_encoding on;
 
+    location = /chat/completions {
         js_header_filter debug.logRequestResponse;
         js_body_filter   debug.logResponseBody;
+        proxy_pass ${OPENAI_API_URL}/chat/completions;
+    }
 
-        proxy_pass ${OPENAI_API_URL};
+    location = /completions {
+        js_header_filter debug.logRequestResponse;
+        js_body_filter   debug.logResponseBody;
+        proxy_pass ${OPENAI_API_URL}/completions;
+    }
 
-        # Override any Authorization header from the client with the server-side API key
-        proxy_set_header Authorization "Bearer ${OPENAI_API_KEY}";
-        proxy_set_header Host $proxy_host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+    location /models {
+        js_header_filter debug.logRequestResponse;
+        js_body_filter   debug.logResponseBody;
+        proxy_pass ${OPENAI_API_URL}/models;
+    }
 
-        # Required for SNI with HTTPS upstream
-        proxy_ssl_server_name on;
+    location = /embeddings {
+        js_header_filter debug.logRequestResponse;
+        js_body_filter   debug.logResponseBody;
+        proxy_pass ${OPENAI_API_URL}/embeddings;
+    }
 
-        proxy_http_version 1.1;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-
-        # Pass through streaming responses (SSE / chunked)
-        proxy_buffering off;
-        chunked_transfer_encoding on;
+    location / {
+        return 200 "Proxy is up.";
     }
 }
