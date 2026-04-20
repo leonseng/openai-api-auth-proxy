@@ -76,6 +76,16 @@ function readStreamingBody(r, data) {
 }
 
 function logResponseBody(r, data, flags) {
+    if (parseInt(r.variables.status) >= 400) {
+        r.variables.response_body_buf = (r.variables.response_body_buf || '') + data;
+        if (flags.last && r.variables.response_body_buf) {
+            logFull(r, `< error response (${r.variables.status}): ${r.variables.response_body_buf}`);
+            r.variables.response_body_buf = '';
+        }
+        r.sendBuffer(data, flags);
+        return;
+    }
+
     if (r.variables.log_body === 'true') {
         if (r.variables.is_streaming === '1') {
             if (readStreamingBody(r, data)) {
